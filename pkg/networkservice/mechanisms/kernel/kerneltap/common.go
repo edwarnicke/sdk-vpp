@@ -20,6 +20,7 @@ package kerneltap
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"git.fd.io/govpp.git/api"
@@ -40,15 +41,35 @@ func create(ctx context.Context, conn *networkservice.Connection, vppConn api.Co
 		if _, ok := ifindex.Load(ctx, isClient); ok {
 			return nil
 		}
+
+		namingConn := conn.Clone()
+		namingConn.Id = namingConn.GetPrevPathSegment().GetId()
+		if isClient {
+			namingConn.Id = namingConn.GetNextPathSegment().GetId()
+		}
+
+		u, err := url.Parse(mechanism.GetNetNSURL())
+		if err != nil {
+			return err
+		}
+		if u.Scheme != kernel.NetNSURLScheme {
+			return errors.Errorf("NetNSURL Scheme required to be %q actual %q", "file", u.Scheme)
+		}
+
 		now := time.Now()
-		rsp, err := tapv2.NewServiceClient(vppConn).TapCreateV2(ctx, &tapv2.TapCreateV2{
-			ID:            ^uint32(0),
-			UseRandomMac:  true,
-			NumRxQueues:   1,
-			HostIfNameSet: true,
-			HostIfName:    linuxIfaceName(mechanism.GetInterfaceName(conn)),
+		tapCreateV2 := &tapv2.TapCreateV2{
+			ID:               ^uint32(0),
+			UseRandomMac:     true,
+			NumRxQueues:      1,
+			RxRingSz:         1024,
+			TxRingSz:         1024,
+			HostIfNameSet:    true,
+			HostIfName:       linuxIfaceName(mechanism.GetInterfaceName(namingConn)),
+			HostNamespaceSet: true,
+			HostNamespace:    u.Path,
 			//TapFlags:         0, // TODO - TUN support for v3 payloads
-		})
+		}
+		rsp, err := tapv2.NewServiceClient(vppConn).TapCreateV2(ctx, tapCreateV2)
 		if err != nil {
 			return errors.WithStack(err)
 		}

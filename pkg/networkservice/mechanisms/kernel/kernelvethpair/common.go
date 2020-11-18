@@ -38,7 +38,9 @@ import (
 
 func create(ctx context.Context, conn *networkservice.Connection, isClient bool) error {
 	if mechanism := kernel.ToMechanism(conn.GetMechanism()); mechanism != nil {
-		// TODO - short circuit if already done
+		if _, ok := link.Load(ctx, isClient); ok {
+			return nil
+		}
 		la := netlink.NewLinkAttrs()
 
 		namingConn := conn.Clone()
@@ -158,7 +160,7 @@ func toNsHandle(mechanism *kernel.Mechanism) (netns.NsHandle, error) {
 	if err != nil {
 		return 0, err
 	}
-	if u.Scheme != "file" {
+	if u.Scheme != kernel.NetNSURLScheme {
 		return 0, errors.Errorf("NetNSURL Scheme required to be %q actual %q", "file", u.Scheme)
 	}
 	return netns.GetFromPath(u.Path)
