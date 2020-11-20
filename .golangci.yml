@@ -172,3 +172,7 @@ issues:
       linters:
         - funlen
       text: "Function 'create' has too many statements"
+    - path: pkg/networkservice/mechanisms/kernel/kerneltap/common.go
+      linters:
+        - funlen
+      text: "Function 'create' is too long"

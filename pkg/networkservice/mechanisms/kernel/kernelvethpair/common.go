@@ -51,7 +51,7 @@ func create(ctx context.Context, conn *networkservice.Connection, isClient bool)
 		if isClient {
 			la.Alias = fmt.Sprintf("client-%s", namingConn.GetId())
 		}
-		nsHandle, err := toNsHandle(mechanism)
+		nsHandle, err := toNSHandle(mechanism)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -153,7 +153,7 @@ func linuxIfaceName(ifaceName string) string {
 	return ifaceName[:kernel.LinuxIfMaxLength]
 }
 
-func toNsHandle(mechanism *kernel.Mechanism) (netns.NsHandle, error) {
+func toNSHandle(mechanism *kernel.Mechanism) (netns.NsHandle, error) {
 	u, err := url.Parse(mechanism.GetNetNSURL())
 	if err != nil {
 		return 0, err
@@ -165,12 +165,12 @@ func toNsHandle(mechanism *kernel.Mechanism) (netns.NsHandle, error) {
 }
 
 func toNetlinkHandle(ctx context.Context, nsHandle netns.NsHandle) (*netlink.Handle, error) {
-	curNsHandle, err := netns.Get()
+	curNSHandle, err := netns.Get()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 	now := time.Now()
-	handle, err := netlink.NewHandleAtFrom(nsHandle, curNsHandle)
+	handle, err := netlink.NewHandleAtFrom(nsHandle, curNSHandle)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
