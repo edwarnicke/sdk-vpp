@@ -73,7 +73,6 @@ func create(ctx context.Context, conn *networkservice.Connection, isClient bool)
 			now := time.Now()
 			addr := &netlink.Addr{
 				IPNet: ipNet,
-				Flags: unix.IFA_F_PERMANENT,
 			}
 			// Turns out IPv6 uses Duplicate Address Detection (DAD) which
 			// we don't need here and which can cause it to take more than a second
@@ -84,13 +83,13 @@ func create(ctx context.Context, conn *networkservice.Connection, isClient bool)
 				addr.Flags |= unix.IFA_F_NODAD
 			}
 
-			// There is a race condition in the kernel that lead to
-
-			for err = handle.AddrReplace(l, addr); os.IsPermission(err); err = handle.AddrReplace(l, addr) {
+			// There is a race condition in the kernel that lead to a "permission denied" error
+			// We spin here to attempt to avoid it.
+			for err = handle.AddrReplace(l, addr); errors.Is(err, os.ErrPermission); err = handle.AddrReplace(l, addr) {
 				select {
 				case <-ctx.Done():
 					return errors.Wrapf(err, "timeout attempting to add ip address %s to %s (type: %s) with flags 0x%x", addr.IPNet, l.Attrs().Name, l.Type(), addr.Flags)
-				default:
+				case <-time.After(10 * time.Millisecond):
 					log.FromContext(ctx).
 						WithField("link.Name", l.Attrs().Name).
 						WithField("link.Type", l.Type()).
@@ -98,7 +97,6 @@ func create(ctx context.Context, conn *networkservice.Connection, isClient bool)
 						WithField("duration", time.Since(now)).
 						WithField("error", err).
 						WithField("netlink", "AddrReplace").Errorf("race condition in kernel, will try again in %s", 10*time.Millisecond)
-					time.Sleep(10 * time.Millisecond)
 				}
 			}
 			if err != nil {
