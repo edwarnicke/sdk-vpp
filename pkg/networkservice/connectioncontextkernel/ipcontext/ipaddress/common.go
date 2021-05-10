@@ -21,6 +21,7 @@ package ipaddress
 import (
 	"context"
 	"net"
+	"os"
 	"time"
 
 	"github.com/networkservicemesh/api/pkg/api/networkservice"
@@ -82,12 +83,26 @@ func create(ctx context.Context, conn *networkservice.Connection, isClient bool)
 			if ipNet != nil && ipNet.IP.To4() == nil {
 				addr.Flags |= unix.IFA_F_NODAD
 			}
-			for err := handle.AddrReplace(l, addr); err != nil; err = handle.AddrReplace(l, addr) {
+
+			// There is a race condition in the kernel that lead to
+
+			for err = handle.AddrReplace(l, addr); os.IsPermission(err); err = handle.AddrReplace(l, addr) {
 				select {
 				case <-ctx.Done():
 					return errors.Wrapf(err, "timeout attempting to add ip address %s to %s (type: %s) with flags 0x%x", addr.IPNet, l.Attrs().Name, l.Type(), addr.Flags)
 				default:
+					log.FromContext(ctx).
+						WithField("link.Name", l.Attrs().Name).
+						WithField("link.Type", l.Type()).
+						WithField("Addr", ipNet.String()).
+						WithField("duration", time.Since(now)).
+						WithField("error", err).
+						WithField("netlink", "AddrReplace").Errorf("race condition in kernel, will try again in %s", 10*time.Millisecond)
+					time.Sleep(10 * time.Millisecond)
 				}
+			}
+			if err != nil {
+				errors.Wrapf(err, "attempting to add ip address %s to %s (type: %s) with flags 0x%x", addr.IPNet, l.Attrs().Name, l.Type(), addr.Flags)
 			}
 			log.FromContext(ctx).
 				WithField("link.Name", l.Attrs().Name).
