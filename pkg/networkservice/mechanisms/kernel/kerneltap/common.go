@@ -29,6 +29,7 @@ import (
 	"github.com/networkservicemesh/api/pkg/api/networkservice"
 	"github.com/networkservicemesh/api/pkg/api/networkservice/mechanisms/kernel"
 	"github.com/networkservicemesh/api/pkg/api/networkservice/payload"
+	"github.com/networkservicemesh/sdk-vpp/pkg/networkservice/up"
 	"github.com/networkservicemesh/sdk/pkg/tools/log"
 	"github.com/pkg/errors"
 
@@ -129,6 +130,7 @@ func create(ctx context.Context, conn *networkservice.Connection, vppConn api.Co
 			WithField("link.Name", l.Attrs().Name).
 			WithField("duration", time.Since(now)).
 			WithField("netlink", "LinkSetUp").Debug("completed")
+		up.Store(ctx, isClient, true)
 	}
 	return nil
 }
